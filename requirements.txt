@@ -12,3 +12,4 @@ Markdown==3.8
 langdetect==1.0.9
 mtranslate==1.8
 python-dotenv==1.1.0
+xhtml2pdf==0.2.17
