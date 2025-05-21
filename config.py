@@ -1,0 +1,28 @@
+# Data plots saved path
+issues_filepath = "Data/Source_Data/Issues_downtime_rawmaterial_data.xlsx"
+production_filepath = "Data/Source_Data/Production_data.xlsx"
+demand_filepath = "Data/Source_Data/Demand_data.xlsx"
+cleaned_path = "Data/Final_Data/Cleaned_Data/cleaned_data.csv"
+merged_data_filepath = "Data/Source_Data/Merged_Data/merged_data.csv"
+linewise_pivot_data_filepath = "Data/Final_Data/Data_For_AI/linewise_pivot_data.csv"
+
+# EDA plots saved path
+utilization_fulfillment_plot_saved_path = 'EDA_plots/Frontend_Plots/Utilization_Fulfillment/linewise_utilization_fulfillment_downtime.png'
+downtime_distribution_plot_saved_path = 'EDA_plots/Frontend_Plots/Downtime_distribution/linewise_issue_downtime.png'
+issues_timeline_plot_saved_path = 'EDA_plots/Frontend_Plots/Issues_Timeline/issues_timeline_by_line.png'
+production_downtime_saved_path = 'EDA_plots/Frontend_Plots/Production_vs_Downtime/prod_downtime_issues_by_line_shift.png'
+combined_production_rm_saved_path = 'EDA_plots/Frontend_Plots/Inventory_Shortages/Combined_Production_RawMaterial_Shortages.png'
+
+## EDA backend files
+line1_combined_analysis_path = "EDA_plots/Backend_Plots/Line1/line1_combined_analysis.png"
+line2_combined_analysis_path = "EDA_plots/Backend_Plots/Line2/line2_combined_analysis.png"
+line3_combined_analysis_path = "EDA_plots/Backend_Plots/Line3/line3_combined_analysis.png"
+
+# Model
+USE_OPENAI = True
+huggingface_model = "google/gemma-3-27b-it"
+hugging_face_temperature=0.0
+gpt_model = "gpt-4.1-mini"
+
+# Report path
+report_path = "Reports_Created/final_report.pdf"

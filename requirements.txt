@@ -1,0 +1,14 @@
+streamlit==1.45.0
+pandas==2.2.3
+plotly==5.22.0
+openpyxl==3.1.5
+seaborn==0.13.2
+matplotlib==3.10.3
+transformers==4.51.3
+langchain-openai==0.2.14
+huggingface-hub
+streamlit-pdf-viewer
+Markdown==3.8
+langdetect==1.0.9
+mtranslate==1.8
+python-dotenv==1.1.0
