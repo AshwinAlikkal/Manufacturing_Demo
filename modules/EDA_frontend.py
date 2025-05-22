@@ -2,7 +2,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from matplotlib.lines import Line2D
-
+from modules import gcs
 import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -73,7 +73,7 @@ def plot_utilization_fulfillment_rate(df):
             lbl.set_rotation(45)
 
     plt.tight_layout()
-    fig.savefig(config.utilization_fulfillment_plot_saved_path, dpi=300)
+    gcs.smart_savefig(fig, config.utilization_fulfillment_plot_saved_path,config.local_eda_flag, dpi=300)
 
 
 def plot_downtime_distribution(df):
@@ -140,7 +140,7 @@ def plot_downtime_distribution(df):
 
     # Tidy and save
     plt.tight_layout()
-    fig.savefig(config.downtime_distribution_plot_saved_path, dpi=300)
+    gcs.smart_savefig(fig, config.downtime_distribution_plot_saved_path,config.local_eda_flag, dpi=300)
 
 def plot_issues_over_time(df):
     issues = df[df['Issue Severity'] != 'No Issue'][[
@@ -196,7 +196,7 @@ def plot_issues_over_time(df):
     fig.suptitle('Issue Timelines by Production Line', fontsize=16)
     fig.autofmt_xdate()
     fig.tight_layout(rect=[0, 0, 0.85, 0.96])
-    plt.savefig(config.issues_timeline_plot_saved_path, dpi=300)
+    gcs.smart_savefig(fig, config.issues_timeline_plot_saved_path,config.local_eda_flag, dpi=300)
 
 def production_downtime_over_time(df):
     df['Date'] = pd.to_datetime(df['Date'])                            # [10]
@@ -251,7 +251,7 @@ def production_downtime_over_time(df):
     fig.suptitle('Production Trend, Downtime & Issue Types by Line & Shift', fontsize=16)
     fig.autofmt_xdate()
     fig.tight_layout(rect=[0, 0, 1, 0.96])
-    plt.savefig(config.production_downtime_saved_path, dpi = 300)
+    gcs.smart_savefig(fig, config.production_downtime_saved_path,config.local_eda_flag, dpi = 300)
 
 def plot_with_shortage_markers_combined(df):
     df['Date'] = pd.to_datetime(df['Date'])
@@ -282,6 +282,6 @@ def plot_with_shortage_markers_combined(df):
         ax.set_title(f'{line} - Combined Production & Raw Material Trends (Shortages Highlighted)')
         ax.tick_params(axis='x', rotation=45)
 
-    plt.savefig(config.combined_production_rm_saved_path, dpi=85, bbox_inches='tight')
+    gcs.smart_savefig(fig, config.combined_production_rm_saved_path,config.local_eda_flag, dpi=85, bbox_inches='tight')
 
 

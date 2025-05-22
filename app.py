@@ -3,7 +3,7 @@ import os
 import pandas as pd
 import streamlit as st
 
-from modules import EDA_frontend, data_preprocessing 
+from modules import EDA_frontend, data_preprocessing, gcs
 import config
 
 # ─────────────────────────────────────
@@ -27,6 +27,13 @@ COLOR_MAP = {
 # ─────────────────────────────────────
 # Helper functions
 # ─────────────────────────────────────
+
+
+def _ensure_local(path):
+    """If we’re in GCS mode & file missing locally → pull it down."""
+    if config.local_data_flag and not os.path.exists(path):
+        gcs.download(path)
+
 def classify_and_save(upload):
     name, raw = upload.name.lower(), upload.getvalue()
     if   "issue"      in name: path = config.issues_filepath
@@ -130,8 +137,7 @@ with st.expander("📂 Upload / replace raw data (Issues, Production, Demand)",
         with st.spinner("Running preprocessing pipeline…"):
             data_preprocessing.preprocess_and_save()
 
-        st.session_state.cleaned_df = pd.read_csv(config.cleaned_path)
-
+        st.session_state.cleaned_df = gcs.load_dataframe(config.cleaned_path, config.local_data_flag)
         # 🔁 Backend EDA: auto-save plots per line
         # with st.spinner("Running backend EDA analysis…"):
         #     df = st.session_state.cleaned_df

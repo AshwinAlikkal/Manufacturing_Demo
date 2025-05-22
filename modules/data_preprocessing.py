@@ -3,6 +3,7 @@
 import pandas as pd
 import os
 import config
+from modules import gcs  # ✅ added
 
 # Financial assumptions
 FINANCIAL_PARAMS = {
@@ -25,7 +26,7 @@ def merge_data(issues, production, demand):
     return merged
 
 def load_and_preprocess(filepath):
-    df = pd.read_csv(filepath, parse_dates=['Date'])
+    df = gcs.load_dataframe(filepath, config.local_data_flag)  # ✅ uses GCS if needed
 
     # Actual Production
     if 'Production Rate (units/hr)' in df.columns:
@@ -118,23 +119,18 @@ def metrics_to_matrix(metrics):
         flat_metrics[unit] = flatten_dict(unit_metrics)
     df_matrix = pd.DataFrame.from_dict(flat_metrics, orient='index')
     df_matrix.index.name = 'Production Line'
-    df_matrix.to_csv(config.linewise_pivot_data_filepath, index=False)
     return df_matrix.reset_index()
 
 def preprocess_and_save():
     issues, production, demand = load_data()
     merged = merge_data(issues, production, demand)
-    os.makedirs(os.path.dirname(config.merged_data_filepath), exist_ok=True)
-    merged.to_csv(config.merged_data_filepath, index=False)
+    gcs.save_dataframe(merged, config.merged_data_filepath, config.local_data_flag) 
 
     cleaned_df = load_and_preprocess(config.merged_data_filepath)
-    os.makedirs(os.path.dirname(config.cleaned_path), exist_ok=True)
-    cleaned_df.to_csv(config.cleaned_path, index=False)
-
+    gcs.save_dataframe(cleaned_df, config.cleaned_path, config.local_data_flag)  
     metrics = generate_unit_metrics(cleaned_df)
     df_matrix = metrics_to_matrix(metrics)
-    os.makedirs(os.path.dirname(config.linewise_pivot_data_filepath), exist_ok=True)
-    df_matrix.to_csv(config.linewise_pivot_data_filepath, index=False)
+    gcs.save_dataframe(df_matrix, config.linewise_pivot_data_filepath, config.local_data_flag)  
 
 # ✅ DO NOT CALL ANYTHING HERE OUTSIDE MAIN
 if __name__ == "__main__":

@@ -3,6 +3,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import matplotlib.dates as mdates
 from datetime import timedelta
+from modules import gcs
+import config
 from matplotlib.gridspec import GridSpec
 
 def create_combined_linewise_figure(df, line, save_path, date, shift):
@@ -121,5 +123,5 @@ def create_combined_linewise_figure(df, line, save_path, date, shift):
         if j == 0:
             ax3.legend(loc='upper left')
 
-    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    gcs.smart_savefig(fig, save_path, config.local_eda_flag, dpi=300, bbox_inches='tight')
     plt.close(fig)
