@@ -16,7 +16,7 @@ _client = None
 def _get_client():
     global _client
     if _client is None:
-        service_account_info = dict(st.secrets["gcp"])
+        service_account_info = dict(st.secrets["google_credentials"])
         credentials = service_account.Credentials.from_service_account_info(service_account_info)
         _client = storage.Client(credentials=credentials, project=service_account_info["project_id"])
     return _client
