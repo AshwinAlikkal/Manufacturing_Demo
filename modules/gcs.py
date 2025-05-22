@@ -101,11 +101,9 @@ def save_pdf(html_content: str, path: str, is_local: bool):
         print(f"✅ Saved PDF to GCS: {path}")  # ✅ for debug
 
 def upload_blob_from_bytes(content: bytes, destination_blob_name: str, content_type="application/pdf"):
-    from google.cloud import storage
-    client = storage.Client()
+    client = _get_client()  # ✅ uses the credentials from secrets.toml
     bucket = client.bucket(config.GCS_BUCKET_NAME)
     blob = bucket.blob(destination_blob_name)
-
     blob.upload_from_string(content, content_type=content_type)
     print(f"✅ Uploaded to GCS at: {destination_blob_name}")
 
