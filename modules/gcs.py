@@ -3,6 +3,7 @@
 import os
 import config
 from google.cloud import storage
+import streamlit as st
 from dotenv import load_dotenv
 from io import BytesIO
 from xhtml2pdf import pisa
@@ -15,7 +16,9 @@ _client = None
 def _get_client():
     global _client
     if _client is None:
-        _client = storage.Client()
+        service_account_info = dict(st.secrets["gcp"])
+        credentials = service_account.Credentials.from_service_account_info(service_account_info)
+        _client = storage.Client(credentials=credentials, project=service_account_info["project_id"])
     return _client
 
 def _get_bucket():
