@@ -6,6 +6,7 @@ from google.cloud import storage
 from dotenv import load_dotenv
 from io import BytesIO
 from xhtml2pdf import pisa
+from google.oauth2 import service_account
 
 
 load_dotenv()
