@@ -22,13 +22,17 @@ line3_combined_analysis_path = "EDA_plots/Backend_Plots/Line3/line3_combined_ana
 GCS_BUCKET_NAME = "terasaka_demo_bucket"
 
 # Flags
-local_data_flag = False
-local_eda_flag = False
-local_report_flag = False
-
+local_data_flag = True
+local_eda_flag = True
+local_report_flag = True
+local_log_flag = True
 
 # Model
 USE_OPENAI = True
 huggingface_model = "google/gemma-3-27b-it"
 hugging_face_temperature=0.0
 gpt_model = "gpt-4.1-mini"
+
+
+#Logging
+log_file_name = "Logs/manufacturing_analysis.txt"

@@ -147,6 +147,7 @@ def prompt_generation(production_issue_text, deficit_block, metrics_csv, date, s
                 For the above, dont just state the facts, but also provide your indepth analysis and insights. 
                 See the end user is a manufacturing manager. 
                 So, he/she will be looking for the insights and analysis from the data and not just the facts. 
+                Dont add any other date except the {date} and {shift} date.
 
     The below is the assumptions that we are making for the financial analysis
     FINANCIAL_PARAMS = 

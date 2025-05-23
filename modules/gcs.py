@@ -100,11 +100,13 @@ def save_pdf(html_content: str, path: str, is_local: bool):
         write_bytes(output.read(), path, is_local=False, content_type="application/pdf")
         print(f"✅ Saved PDF to GCS: {path}")  # ✅ for debug
 
-def upload_blob_from_bytes(content: bytes, destination_blob_name: str, content_type="application/pdf"):
-    client = _get_client()  # ✅ uses the credentials from secrets.toml
-    bucket = client.bucket(config.GCS_BUCKET_NAME)
+def upload_blob_from_bytes(content, destination_blob_name, content_type="application/octet-stream"):
+    bucket = _get_bucket()
     blob = bucket.blob(destination_blob_name)
     blob.upload_from_string(content, content_type=content_type)
-    print(f"✅ Uploaded to GCS at: {destination_blob_name}")
+
+def upload_log_file(log_bytes, remote_path=config.log_file_name):
+    if log_bytes:
+        write_bytes(log_bytes, remote_path, is_local=False, content_type="text/plain")
 
 

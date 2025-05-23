@@ -1,281 +1,308 @@
+# modules/utils.py   – full file with stronger logging + safer PDF upload
 import os
-import numpy as np
-import markdown
-from xhtml2pdf import pisa
-import pandas as pd
-from openai import OpenAI
-import base64
-from huggingface_hub import InferenceClient, login
-from modules import prompts,gcs
-from math import ceil
-from scipy.optimize import linprog
 import sys
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-import config
+import base64
+from math import ceil
+from datetime import datetime
 
+import numpy as np
+import pandas as pd
+import markdown
+from scipy.optimize import linprog
 from dotenv import load_dotenv
-import os
+from openai import OpenAI
+from huggingface_hub import InferenceClient, login
+from xhtml2pdf import pisa
 
-load_dotenv()  # Load from .env
+from modules import prompts, gcs
+import config
+from modules.logger import get_log_stream, upload_log_to_gcs, get_logger
 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+# ─────────────────────────────────────────────
+# Logger
+# ─────────────────────────────────────────────
+load_dotenv()
+logger = get_logger()
+
+def _log_long(txt: str, label: str, head: int = 800) -> None:
+    """
+    Helper: log long strings without spamming the log file.
+    Keeps the first `head` characters (default 800).
+    """
+    snippet = txt 
+    logger.info("%s (%d chars)\n%s", label, len(txt), snippet)
+
+# ─────────────────────────────────────────────
+# API keys
+# ─────────────────────────────────────────────
+OPENAI_API_KEY     = os.getenv("OPENAI_API_KEY")
 HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API_KEY")
 
-def encode_image(path):
-    """
-    Encode an image file to a base64 string.
-    Args:
-        path (str): Path to the image file.
-    """
-    image_bytes = gcs.read_bytes(path, config.local_eda_flag)
-    return f"data:image/png;base64,{base64.b64encode(image_bytes).decode('utf-8')}"
+# ─────────────────────────────────────────────
+# Utility functions
+# ─────────────────────────────────────────────
+def encode_image(path: str) -> str:
+    """Load an image (local or GCS) and return a base-64 data-URL string."""
+    try:
+        image_bytes = gcs.read_bytes(path, config.local_eda_flag)
+        logger.info("Encoded image at %s", path)
+        return (
+            "data:image/png;base64,"
+            + base64.b64encode(image_bytes).decode("utf-8")
+        )
+    except Exception as e:
+        logger.error("Failed to encode image at %s: %s", path, e)
+        raise
 
-
-def generate_manufacturing_analysis():
+# ─────────────────────────────────────────────
+# 1. Manufacturing analysis (plots → LLM)
+# ─────────────────────────────────────────────
+def generate_manufacturing_analysis() -> str:
     """
-    Generate manufacturing analysis using OpenAI or Hugging Face API.
-    Args:
-        None
+    Loop over the three combined EDA plots (one per line), send each to an LLM
+    and build a single markdown section containing all analyses.
     """
-    image_paths = [
-        config.line1_combined_analysis_path,
-        config.line2_combined_analysis_path,
-        config.line3_combined_analysis_path
+    try:
+        image_paths = [
+            config.line1_combined_analysis_path,
+            config.line2_combined_analysis_path,
+            config.line3_combined_analysis_path,
         ]
- 
-    titles = [
-        "Plot 1 : Line 1 Combined EDA",
-        "Plot 2 : Line 2 Combined EDA",
-        "Plot 3 : Line 3 Combined EDA",
-    ]
+        titles = [
+            "Plot 1 : Line 1 Combined EDA",
+            "Plot 2 : Line 2 Combined EDA",
+            "Plot 3 : Line 3 Combined EDA",
+        ]
+        manufacturing_system_prompt = prompts.manufacturing_system_prompt
+        combined_md = ""
 
-    manufacturing_system_prompt = prompts.manufacturing_system_prompt
-    combined_analysis = ""
-    
+        if config.USE_OPENAI:
+            client = OpenAI(api_key=OPENAI_API_KEY)
+            logger.info("Using OpenAI for manufacturing analysis.")
+        else:
+            login(HUGGINGFACE_API_KEY)
+            client = InferenceClient(config.huggingface_model,
+                                     token=HUGGINGFACE_API_KEY)
+            logger.info("Using HuggingFace for manufacturing analysis.")
 
-    if config.USE_OPENAI:
-        client = OpenAI(api_key = OPENAI_API_KEY)
- 
         for title, path in zip(titles, image_paths):
-            encoded_image = encode_image(path)
-    
-            messages = [
-                {"role": "system", "content": manufacturing_system_prompt},
-                {"role": "user", "content": [
-                    {"type": "text", "text": title},
-                    {"type": "image_url", "image_url": {"url": encoded_image}}
-                ]}
-            ]
-    
-            response = client.chat.completions.create(
-                model = config.gpt_model,
-                messages = messages
-                #max_tokens=config.hugging_face_max_tokens,
-            )
-    
-            analysis = response.choices[0].message.content
-            combined_analysis += f"\n\n### {title}\n{analysis}"
-            
-    else: 
-        login(HUGGINGFACE_API_KEY)
-        client = InferenceClient(config.huggingface_model, token=HUGGINGFACE_API_KEY)
-        for title, path in zip(titles, image_paths):   
-            encoded_image = encode_image(path)
-    
-            messages = [
-                {"role": "system", "content": manufacturing_system_prompt},
-                {"role": "user", "content": [
-                    {"type": "text", "text": title},
-                    {"type": "image_url", "image_url": {"url": encoded_image}}
-                ]}
-            ]
-    
-            response = client.chat.completions.create(
-                model = config.huggingface_model,
-                messages = messages
-            )
-    
-            analysis = response.choices[0].message.content
-            combined_analysis += f"\n\n### {title}\n{analysis}"
+            try:
+                encoded = encode_image(path)
+                messages = [
+                    {"role": "system", "content": manufacturing_system_prompt},
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": title},
+                            {"type": "image_url",
+                             "image_url": {"url": encoded}},
+                        ],
+                    },
+                ]
+                if config.USE_OPENAI:
+                    resp = client.chat.completions.create(
+                        model=config.gpt_model, messages=messages
+                    )
+                    analysis = resp.choices[0].message.content
+                else:
+                    resp = client.chat.completions.create(
+                        model=config.huggingface_model, messages=messages
+                    )
+                    analysis = resp.choices[0].message.content
 
-    return combined_analysis
+                _log_long(analysis, f"{title}-analysis")
+                combined_md += f"\n\n### {title}\n{analysis}"
+                logger.info("Analysis generated for %s", title)
 
+            except Exception as e:
+                logger.error("%s analysis failed: %s", title, e)
+                combined_md += f"\n\n### {title}\nAnalysis failed: {e}"
 
- 
-# --- Optimizaion tool ---
-def run_recovery_text_output(start_date, start_shift):
+        logger.info("Manufacturing analysis complete.")
+        return combined_md
+
+    except Exception as e:
+        logger.error("generate_manufacturing_analysis failed: %s", e)
+        raise
+
+# ─────────────────────────────────────────────
+# 2. Recovery plan (LP optimisation → text)
+# ─────────────────────────────────────────────
+def run_recovery_text_output(start_date, start_shift) -> str:
     """
-    1) Load the CSV and timestamp each shift
-    2) Sum deficits from (start_date, start_shift) onward
-    3) Try to repay in one day; if not, compute a minimal multi-day plan
-    4) Return a single text block you can drop into a prompt.
-
-    Args:
-        path (str): Path to the CSV file.
-        start_date (str): Start date in 'YYYY-MM-DD' format.
-        start_shift (str): Start shift, either 'Day' or 'Night'.
+    Optimise a deficit-recovery schedule.
+    Returns a plain-text block.
     """
-    # --- 1) load & timestamp ---
-    df = gcs.load_dataframe(config.cleaned_path, config.local_data_flag)
-    df['Date'] = pd.to_datetime(df['Date']) 
-    df['shift_time'] = np.where(
-        df['Shift']=='Day',
-        df['Date'] + pd.Timedelta(hours=12),
-        df['Date'] + pd.Timedelta(hours=20)
-    )
-    df = df.sort_values('shift_time').reset_index(drop=True)
- 
-    # --- 2) Define cutoff ---
-    cut = pd.to_datetime(start_date) + (
-        pd.Timedelta(hours=12) if start_shift=='Day'
-        else pd.Timedelta(hours=20)
-    )
- 
-    # --- 3) Split data ---
-    baseline = df[df['shift_time'] < cut]
-    window   = df[df['shift_time'] >= cut]
- 
-    # Total deficit to recover
-    D = window['Production_Deficit'].sum()
- 
-    # D = 200
-    # Baseline avg hours (pre-cutoff) and rates (post-cutoff)
-    avg_time  = baseline.groupby('Production Line')['Machine Operation Time (hrs)'].mean()
-    prod_rate = window.groupby('Production Line')['Production Rate (units/hr)'].mean()
- 
-    # Align lines
-    lines = sorted(set(avg_time.index).intersection(prod_rate.index))
-    avg   = avg_time.loc[lines].values
-    rate  = prod_rate.loc[lines].values
- 
-    # Common LP ingredients for s_i = extra hours
-    bounds = [(max(0, 6 - ai), max(0, 10 - ai)) for ai in avg]
-    c       = -rate
-    A_ub    = rate.reshape(1, -1)
-    b_ub    = [D]
- 
-    # --- 4) Single-day LP ---
-    sol = linprog(c, A_ub=A_ub, b_ub=b_ub, bounds=bounds, method='highs')
-    if sol.success and (rate @ sol.x) >= D - 1e-6:
-        s_opt    = sol.x
-        h_opt    = avg + s_opt
-        produced = float((rate * s_opt).sum())
- 
+    try:
+        # 1️⃣ Load & preprocess
+        df = gcs.load_dataframe(config.cleaned_path, config.local_data_flag)
+        df["Date"] = pd.to_datetime(df["Date"])
+        df["shift_time"] = np.where(
+            df["Shift"] == "Day",
+            df["Date"] + pd.Timedelta(hours=12),
+            df["Date"] + pd.Timedelta(hours=20),
+        )
+        df = df.sort_values("shift_time").reset_index(drop=True)
+        logger.info("Dataframe processed for recovery plan.")
+
+        # 2️⃣ Cut-off timestamp
+        cut = pd.to_datetime(start_date) + (
+            pd.Timedelta(hours=12) if start_shift == "Day"
+            else pd.Timedelta(hours=20)
+        )
+
+        # 3️⃣ Split baseline / window
+        baseline = df[df["shift_time"] < cut]
+        window   = df[df["shift_time"] >= cut]
+
+        D = window["Production_Deficit"].sum()
+        avg_time = baseline.groupby("Production Line")["Machine Operation Time (hrs)"].mean()
+        prod_rate = window.groupby("Production Line")["Production Rate (units/hr)"].mean()
+
+        lines = sorted(set(avg_time.index).intersection(prod_rate.index))
+        avg   = avg_time.loc[lines].values
+        rate  = prod_rate.loc[lines].values
+
+        bounds = [(max(0, 6 - ai), max(0, 10 - ai)) for ai in avg]
+        c   = -rate
+        A_ub = rate.reshape(1, -1)
+        b_ub = [D]
+
+        # 4️⃣ One-day LP
+        sol = linprog(c, A_ub=A_ub, b_ub=b_ub, bounds=bounds, method="highs")
+        if sol.success and (rate @ sol.x) >= D - 1e-6:
+            s_opt = sol.x
+            h_opt = avg + s_opt
+            produced = float((rate * s_opt).sum())
+
+            sched = pd.DataFrame({
+                "Production Line": lines,
+                "Avg Hours": avg,
+                "Opt Hours": h_opt,
+                "% Increase": 100 * s_opt / avg,
+                "Extra Prod": rate * s_opt,
+            })
+            sched_date = (pd.to_datetime(start_date) + pd.Timedelta(days=1)).date()
+
+            out = [
+                f"Total Deficit from {start_date} {start_shift} shift: {D:.1f} units",
+                f"\nSingle-Day Schedule for {sched_date}:",
+                sched.to_string(index=False, float_format="%.2f"),
+                f"\nTotal Produced Against Deficit: {produced:.1f} units",
+            ]
+            result = "\n\n".join(out)
+            _log_long(result, "single-day-recovery-plan")
+            return result
+
+        # 5️⃣ Multi-day fallback
+        max_daily = ((10 - avg) * rate).sum()
+        days = ceil(D / max_daily)
+        daily_def = D / days
+
+        denom = np.dot(rate, rate)
+        s_prop  = daily_def * rate / denom
+        h_daily = np.clip(avg + s_prop, 6, 10)
+
         sched = pd.DataFrame({
-            'Production Line': lines,
-            'Avg Hours':       avg,
-            'Opt Hours':       h_opt,
-            '% Increase':      100 * s_opt / avg,
-            'Extra Prod':      rate * s_opt
+            "Production Line": lines,
+            "Avg Hours": avg,
+            "Daily Hours required": h_daily,
+            "% Increase": 100 * (h_daily - avg) / avg,
         })
-        sched_date = (pd.to_datetime(start_date) + pd.Timedelta(days=1)).date()
- 
+
         out = [
             f"Total Deficit from {start_date} {start_shift} shift: {D:.1f} units",
-            f"\nSingle-Day Schedule for {sched_date}:",
+            f"\nRequires minimum {days} days to recover deficit.",
+            "\nDaily Schedule (shift-wise):",
             sched.to_string(index=False, float_format="%.2f"),
-            f"\nTotal Produced Against Deficit: {produced:.1f} units"
         ]
-        return "\n\n".join(out)
- 
-    # --- 5) Multi-day fallback with rate-proportional distribution ---
-    # Compute minimal days under max 10 hr cap
-    max_daily = ((10 - avg) * rate).sum()
-    days      = ceil(D / max_daily)
-    daily_def = D / days
- 
-    # Distribute the per-day deficit across lines in proportion to their rates:
-    #   s_prop[i] = daily_def * rate[i] / sum(rate**2)
-    # so that sum(rate * s_prop) == daily_def
-    denom = np.dot(rate, rate)
-    s_prop = daily_def * rate / denom
- 
-    # Final hours clipped into [6, 10]
-    h_daily = np.clip(avg + s_prop, 6, 10)
- 
-    sched = pd.DataFrame({
-        'Production Line':      lines,
-        'Avg Hours':            avg,
-        'Daily Hours required': h_daily,
-        '% Increase':           100 * (h_daily - avg) / avg
-    })
- 
-    out = [
-        f"Total Deficit from {start_date} {start_shift} shift: {D:.1f} units",
-        f"\nRequires minimum {days} days to recover deficit.",
-        "\nDaily Schedule(Shiftwise):",
-        sched.to_string(index=False, float_format="%.2f")
-    ]
-    return "\n\n".join(out)
+        result = "\n\n".join(out)
+        _log_long(result, "multi-day-recovery-plan")
+        return result
 
-def build_report_string(prompt):
+    except Exception as e:
+        logger.error("run_recovery_text_output failed: %s", e)
+        return f"Failed to compute recovery plan: {e}"
 
-    """
-    1) Generate a markdown report string using OpenAI.
-    Args:
-        prompt (str): The prompt to generate the report string.
-    """
-
-    client = OpenAI(api_key=OPENAI_API_KEY)
-    response = client.chat.completions.create(
-        model=config.gpt_model,
-        messages=[
-            {"role": "system", 
-             "content": prompt}
-        ],
-        temperature=0.0,
-        #max_tokens=2000
-    )
-    return response.choices[0].message.content
-
-
-# def pdf_creation(md_content, save_path):
-
-#     """
-#     1. Convert markdown to HTML
-#     2. Add basic CSS for styling
-#     3. Save the HTML as a PDF file
-#     Args:
-#         md_content (str): The markdown content to convert to PDF.
-#     """
-#     if not save_path:
-#         raise ValueError("PDF creation requires an explicit save_path.")
-#     html_content = markdown.markdown(md_content, extensions=['extra'])
-#     html_full = prompts.build_html_content(html_content)
-#     from modules import gcs
-#     gcs.save_pdf(html_full, save_path, config.local_report_flag)
-#     return save_path
-
-def pdf_creation(md_content, save_path):
-    if not save_path:
-        raise ValueError("PDF creation requires an explicit save_path.")
-
-    from xhtml2pdf import pisa
-    from io import BytesIO
-    from modules import gcs
-
-    html_content = markdown.markdown(md_content, extensions=['extra'])
-    html_full = prompts.build_html_content(html_content)
-
-    output = BytesIO()
-    pisa_status = pisa.CreatePDF(html_full, dest=output)
-    output.seek(0)
-
-    if config.local_report_flag:
-        os.makedirs(os.path.dirname(save_path), exist_ok=True)
-        with open(save_path, "wb") as f:
-            f.write(output.read())
-        print(f"✅ PDF saved locally: {save_path}")
-    else:
-        gcs.upload_blob_from_bytes(
-            content=output.read(),
-            destination_blob_name=save_path,
-            content_type="application/pdf"
+# ─────────────────────────────────────────────
+# 3. Build full markdown report (LLM)
+# ─────────────────────────────────────────────
+def build_report_string(prompt: str) -> str:
+    """Call OpenAI with the full prompt and return the markdown report string."""
+    try:
+        client = OpenAI(api_key=OPENAI_API_KEY)
+        response = client.chat.completions.create(
+            model=config.gpt_model,
+            messages=[{"role": "system", "content": prompt}],
+            temperature=0.0,
         )
-        print(f"✅ PDF uploaded to GCS: {save_path}")
+        md = response.choices[0].message.content
+        _log_long(md, "build_report_string-return")
+        return md
+    except Exception as e:
+        logger.error("build_report_string failed: %s", e)
+        return f"Failed to generate report string: {e}"
 
-    return save_path
+# ─────────────────────────────────────────────
+# 4. Convert markdown → PDF (local or GCS)
+# ─────────────────────────────────────────────
+def pdf_creation(md_content: str, save_path: str) -> str:
+    """
+    Convert markdown to HTML, render it to a PDF and store it either locally
+    or in the configured GCS bucket.
+    """
+    try:
+        if not save_path:
+            raise ValueError("PDF creation requires an explicit save_path.")
 
+        html_body = markdown.markdown(md_content, extensions=["extra"])
+        html_full = prompts.build_html_content(html_body)
 
-    
+        # ----- Render HTML → PDF (in-memory) -----
+        from io import BytesIO
+        output = BytesIO()
+        pisa_status = pisa.CreatePDF(html_full, dest=output)
+        if pisa_status.err:
+            raise RuntimeError(f"xhtml2pdf returned {pisa_status.err} error(s).")
+        output.seek(0)
 
+        if config.local_report_flag:
+            os.makedirs(os.path.dirname(save_path), exist_ok=True)
+            with open(save_path, "wb") as f:
+                f.write(output.read())
+            logger.info("PDF saved locally → %s", save_path)
+
+        else:
+            # Upload to GCS
+            gcs.upload_blob_from_bytes(
+                content=output.read(),
+                destination_blob_name=save_path,
+                content_type="application/pdf",
+            )
+
+            # quick sanity check
+            bucket = gcs._get_bucket()
+            if not bucket.blob(save_path).exists():
+                raise RuntimeError(f"GCS upload succeeded but blob {save_path} "
+                                   "is not found afterwards.")
+            logger.info("PDF uploaded to GCS → %s", save_path)
+
+        return save_path
+
+    except Exception as e:
+        logger.error("pdf_creation failed (%s): %s", save_path, e)
+        return f"PDF creation failed: {e}"
+
+# ─────────────────────────────────────────────
+# 5. Push logs to GCS at module exit (cloud mode)
+# ─────────────────────────────────────────────
+if not config.local_log_flag:
+    try:
+        stream = get_log_stream()
+        if stream is not None:
+            upload_log_to_gcs(stream.getvalue(), gcs)
+            stream.truncate(0)
+            stream.seek(0)
+            logger.info("Logs uploaded to GCS and stream cleared (utils.py).")
+    except Exception as e:
+        logger.error("Log upload at utils.py exit failed: %s", e)
