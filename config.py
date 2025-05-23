@@ -22,10 +22,10 @@ line3_combined_analysis_path = "EDA_plots/Backend_Plots/Line3/line3_combined_ana
 GCS_BUCKET_NAME = "terasaka_demo_bucket"
 
 # Flags
-local_data_flag = True
-local_eda_flag = True
-local_report_flag = True
-local_log_flag = True
+local_data_flag = False
+local_eda_flag = False
+local_report_flag = False
+local_log_flag = False
 
 # Model
 USE_OPENAI = True
