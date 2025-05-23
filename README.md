@@ -35,12 +35,3 @@ A modular, Streamlit-based application for real-time data analysis, visualizatio
 ### 📝 Smart Logging
 - Contextual logs with in-memory (GCS mode) or file-based (local) support
 - Logs automatically uploaded to GCS in cloud mode
-
----
-
-├── EDA_plots/                        # Saved backend plots
-│   └── Backend_Plots/
-│       ├── Line1/line1_combined_analysis.png
-│       ├── Line2/line2_combined_analysis.png
-│       └── Line3/line3_combined_analysis.png
-
