@@ -305,3 +305,18 @@ def build_html_content(html_content):
             </html>
     """
     return html_full
+
+ocr_prompt = """Extract all handwritten text from this image written in the form of a table. 
+                Use the following columns only: Date, Production Line, Shift, Machine operating time (hrs), 
+                Production Rate(units/hr), Issue Severity Major, Issue Severity Minor, Issue Severity No issues, Comments.
+                - Date: The date in the format is MM/DD/YYYY
+                - Production Line: The name of the production line (Either it is Line 1 or Line 2 or Line 3)
+                - Shift: The shift during which the record was made (Either it is Day or Night)
+                - Machine operating time (hrs): The total operating time of the machine in hours
+                - Production Rate (units/hr): The production rate in units per hour
+                - Issue Severity Major: Indicates if there are any major issues (Yes or No)
+                - Issue Severity Minor: Indicates if there are any minor issues (Yes or No)
+                - Issue Severity No Issues: Indicates if there are no issues (Yes or No)
+                - Comments: Any additional comments or notes  
+                If the header is missing, assume the above column headers. Output the table using '|' delimiters with one row per line.
+                """
