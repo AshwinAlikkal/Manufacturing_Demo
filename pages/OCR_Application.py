@@ -39,25 +39,39 @@ try:
                 st.stop()
 
             with st.spinner("Running OCR and extracting data..."):
-                df = utils.OCR_implementation(uploads)
+                df_production, df_issues = utils.OCR_implementation(uploads)
 
-            if not df.empty:
-                st.subheader("📊 Cleaned Data Preview")
-                st.write(df)
+            # ─────────────────────────────────────────────
+            # Display Production Table
+            # ─────────────────────────────────────────────
+            if not df_production.empty:
+                st.subheader("🏭 Production Data")
+                st.dataframe(df_production, use_container_width=True)
                 st.download_button(
-                    label="📥 Download CSV",
-                    data=df.to_csv(index=False).encode("utf-8"),
-                    file_name="ocr_results.csv",
+                    label="📥 Download Production CSV",
+                    data=df_production.to_csv(index=False).encode("utf-8"),
+                    file_name="production_results.csv",
                     mime="text/csv"
                 )
-                # For Constructing the structure of the folder
-                ocr_path = config.ocr_data_saved_path
-
-                # For finally saving the folder
-                gcs.save_dataframe(df, ocr_path, is_local=config.local_ocr_flag)
+                gcs.save_dataframe(df_production, config.ocr_production_saved_path, is_local=config.local_ocr_flag)
             else:
-                st.error("⚠️ No valid data extracted from the uploaded images.")
-                logger.warning("OCR processing completed with empty DataFrame.")
+                st.warning("⚠️ No valid production data extracted.")
+
+            # ─────────────────────────────────────────────
+            # Display Issues Table
+            # ─────────────────────────────────────────────
+            if not df_issues.empty:
+                st.subheader("⚠️ Issues Data")
+                st.dataframe(df_issues, use_container_width=True)
+                st.download_button(
+                    label="📥 Download Issues CSV",
+                    data=df_issues.to_csv(index=False).encode("utf-8"),
+                    file_name="issues_results.csv",
+                    mime="text/csv"
+                )
+                gcs.save_dataframe(df_issues, config.ocr_issues_saved_path, is_local=config.local_ocr_flag)
+            else:
+                st.warning("⚠️ No valid issue data extracted.")
 
 except Exception as e:
     logger.error(f"Unexpected error in OCR application: {e}")

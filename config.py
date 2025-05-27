@@ -5,7 +5,8 @@ demand_filepath = "Data/Source_Data/Demand_data.xlsx"
 cleaned_path = "Data/Final_Data/Cleaned_Data/cleaned_data.csv"
 merged_data_filepath = "Data/Source_Data/Merged_Data/merged_data.csv"
 linewise_pivot_data_filepath = "Data/Final_Data/Data_For_AI/linewise_pivot_data.csv"
-ocr_data_saved_path = "Data/OCR_Data/ocr_results.csv"
+ocr_production_saved_path = "Data/OCR_Data/Production_OCR.csv"
+ocr_issues_saved_path = "Data/OCR_Data/Issues_OCR.csv"
 
 # EDA local plots saved path
 utilization_fulfillment_plot_saved_path = 'EDA_plots/Frontend_Plots/Utilization_Fulfillment/linewise_utilization_fulfillment_downtime.png'
