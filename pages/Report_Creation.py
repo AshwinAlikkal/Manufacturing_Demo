@@ -200,6 +200,54 @@ except Exception as e:
     logger.error("PDF preview/download failed: %s", e)
     st.error("Error displaying PDF preview or download.")
 
+try:
+    report_path = st.session_state.get("report_path")
+    if report_path:
+        # 1️⃣ Extract full text
+        full_text = utils.full_text_from_report(report_path)
+        logger.info("Extracted text from report (%d chars)", len(full_text))
+        
+
+        # 2️⃣ Generate production plan
+        line_summary, production_plan = utils.recovery_summary_and_plan_from_text(
+            full_text,
+            config.production_filepath
+        )
+        logger.info(
+            "Generated production plan: %d rows for %d lines",
+            production_plan.shape[0],
+            line_summary.shape[0]
+        )
+        gcs.save_dataframe(line_summary, config.line_summary_filepath, is_local=config.line_summary_flag)
+        gcs.save_dataframe(production_plan, config.production_plan_filepath, is_local=config.production_plan_flag)
+        
+        # 3️⃣ Display in an expander beside PDF
+        if(production_plan.empty):
+            st.success('Total deficit is zero. Production is on track—no recovery plan required.')
+
+        else:
+            with st.expander("📊 Production Recovery Plan", expanded=True):
+                st.write("**Line-level summary:**")
+                st.dataframe(line_summary, use_container_width=True)
+                
+                st.write("**Detailed shift-by-shift plan:**")
+                st.dataframe(production_plan, use_container_width=True)
+                
+                # 4️⃣ Download button
+                csv_bytes = production_plan.to_csv(index=False).encode("utf-8")
+                if st.download_button(
+                    label="Download Production Plan as CSV",
+                    data=csv_bytes,
+                    file_name="production_plan.csv",
+                    mime="text/csv"
+                ):
+                    logger.info("Production plan CSV downloaded by user")
+                    gcs.save_dataframe(line_summary, config.line_summary_filepath, is_local=config.line_summary_flag)
+                    gcs.save_dataframe(production_plan, config.production_plan_filepath, is_local=config.production_plan_flag)
+            
+except Exception as e:
+    st.error('An error occured during the generation of production plan, {e}')
+    logger.info("Erro occured during the generation of production plan")
 # ─────────────────────────────────────────────
 # 3️⃣ Upload Logs to GCS if in Cloud Mode
 # ─────────────────────────────────────────────

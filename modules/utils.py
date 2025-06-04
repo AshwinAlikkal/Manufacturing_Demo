@@ -3,7 +3,7 @@ import os
 import sys
 import base64
 from math import ceil
-from datetime import datetime
+from datetime import datetime,timedelta
 
 import numpy as np
 import pandas as pd
@@ -22,6 +22,8 @@ from PIL import Image
 import google.generativeai as genai
 import re
 
+import pdfplumber
+import json
 # ─────────────────────────────────────────────
 # Logger
 # ─────────────────────────────────────────────
@@ -148,7 +150,6 @@ def run_recovery_text_output(start_date, start_shift) -> str:
             df["Date"] + pd.Timedelta(hours=20),
         )
         df = df.sort_values("shift_time").reset_index(drop=True)
-        logger.info("Dataframe processed for recovery plan.")
 
         # 2️⃣ Cut-off timestamp
         cut = pd.to_datetime(start_date) + (
@@ -161,45 +162,61 @@ def run_recovery_text_output(start_date, start_shift) -> str:
         window   = df[df["shift_time"] >= cut]
 
         D = window["Production_Deficit"].sum()
-        avg_time = baseline.groupby("Production Line")["Machine Operation Time (hrs)"].mean()
-        prod_rate = window.groupby("Production Line")["Production Rate (units/hr)"].mean()
+        # overall avg hours per LINE (both shifts combined—as before)
+        avg_line  = baseline.groupby("Production Line")["Machine Operation Time (hrs)"].mean()
+        rate_line = window.groupby("Production Line")["Production Rate (units/hr)"].mean()
 
-        lines = sorted(set(avg_time.index).intersection(prod_rate.index))
-        avg   = avg_time.loc[lines].values
-        rate  = prod_rate.loc[lines].values
+        # NEW: per-shift averages for the baseline period
+        avg_by_shift = (
+            baseline
+            .groupby(["Production Line","Shift"])["Machine Operation Time (hrs)"]
+            .mean()
+            .unstack()   # yields columns ['Day','Night']
+        )
 
+        lines = sorted(set(avg_line.index).intersection(rate_line.index))
+        avg   = avg_line.loc[lines].values
+        rate  = rate_line.loc[lines].values
+
+        # LP setup (unchanged)
         bounds = [(max(0, 6 - ai), max(0, 10 - ai)) for ai in avg]
         c   = -rate
         A_ub = rate.reshape(1, -1)
         b_ub = [D]
 
-        # 4️⃣ One-day LP
+        # 4️⃣ Single-day LP
         sol = linprog(c, A_ub=A_ub, b_ub=b_ub, bounds=bounds, method="highs")
         if sol.success and (rate @ sol.x) >= D - 1e-6:
             s_opt = sol.x
             h_opt = avg + s_opt
             produced = float((rate * s_opt).sum())
 
+            # extract per-shift avg arrays
+            avg_day   = avg_by_shift.loc[lines, "Day"].values
+            avg_night = avg_by_shift.loc[lines, "Night"].values
+
             sched = pd.DataFrame({
-                "Production Line": lines,
-                "Avg Hours": avg,
-                "Opt Hours": h_opt,
-                "% Increase": 100 * s_opt / avg,
-                "Extra Prod": rate * s_opt,
-            })
+                "Production Line":    lines,
+                "Avg Hours (all)  ":  avg,
+                "Opt Hours (all)  ":  h_opt,
+                "% Increase Day    ": 100 * s_opt / avg_day,
+                "% Increase Night  ": 100 * s_opt / avg_night,
+                "Extra Prod (units)":  rate * s_opt,
+            }).round(2)
+
             sched_date = (pd.to_datetime(start_date) + pd.Timedelta(days=1)).date()
 
             out = [
                 f"Total Deficit from {start_date} {start_shift} shift: {D:.1f} units",
                 f"\nSingle-Day Schedule for {sched_date}:",
-                sched.to_string(index=False, float_format="%.2f"),
+                sched.to_string(index=False),
                 f"\nTotal Produced Against Deficit: {produced:.1f} units",
             ]
             result = "\n\n".join(out)
             _log_long(result, "single-day-recovery-plan")
             return result
 
-        # 5️⃣ Multi-day fallback
+        # 5️⃣ Multi-day fallback (unchanged), but add the two % columns similarly
         max_daily = ((10 - avg) * rate).sum()
         days = ceil(D / max_daily)
         daily_def = D / days
@@ -208,18 +225,22 @@ def run_recovery_text_output(start_date, start_shift) -> str:
         s_prop  = daily_def * rate / denom
         h_daily = np.clip(avg + s_prop, 6, 10)
 
+        avg_day   = avg_by_shift.loc[lines, "Day"].values
+        avg_night = avg_by_shift.loc[lines, "Night"].values
+
         sched = pd.DataFrame({
-            "Production Line": lines,
-            "Avg Hours": avg,
+            "Production Line":   lines,
+            "Avg Hours (all)    ": avg,
             "Daily Hours required": h_daily,
-            "% Increase": 100 * (h_daily - avg) / avg,
-        })
+            "% Increase Day      ": 100 * (h_daily - avg) / avg_day,
+            "% Increase Night    ": 100 * (h_daily - avg) / avg_night,
+        }).round(2)
 
         out = [
             f"Total Deficit from {start_date} {start_shift} shift: {D:.1f} units",
             f"\nRequires minimum {days} days to recover deficit.",
             "\nDaily Schedule (shift-wise):",
-            sched.to_string(index=False, float_format="%.2f"),
+            sched.to_string(index=False),
         ]
         result = "\n\n".join(out)
         _log_long(result, "multi-day-recovery-plan")
@@ -398,6 +419,99 @@ def OCR_implementation(uploaded_files):
     logger.info(f"Production shape: {df_production.shape}, Issues shape: {df_issues.shape}")
     return df_production, df_issues
 
+## ---> Extracting text from pdf using pdfplumber
+
+def full_text_from_report(report_path):
+    with pdfplumber.open(report_path) as pdf:
+        full_text = "\n".join(page.extract_text() or "" for page in pdf.pages)
+
+    return full_text
+
+## ---> Final Production plan generation in a dataframe format
+def recovery_summary_and_plan_from_text(
+    full_text,
+    production_excel_path,
+    prod_rate_map=None,
+):
+    """
+    1. Calls Gemini to extract recovery JSON from full_text.
+    2. Generates summary DataFrame and production plan DataFrame.
+    Returns: summary_df, plan_df
+    """
+    if prod_rate_map is None:
+        prod_rate_map = {"Line1": 140, "Line2": 150, "Line3": 130}
+
+    # --- Gemini call for JSON extraction ---
+    system_prompt = (
+        "You are a production-recovery data extractor. "
+        "Given a block of plain text describing recovery hours recommendations, "
+        "output a JSON array. Each element MUST use these EXACT keys (include units):\n"
+        "  - Production Line (e.g. \"Line1\")\n"
+        "  - Current Hours (hrs/day)\n"
+        "  - Recommended Hours (hrs/day)\n"
+        "  - Increase (%) Day\n"
+        "  - Increase (%) Night\n"
+        "  - Recovery Days\n"
+        "Example:\n"
+        "[{\"Production Line\": \"Line1\", \"Current Hours (hrs/day)\": 8.0, ...}]\n"
+        "Do NOT alter key names or omit units. Output ONLY valid JSON."
+    )
+    user_prompt = f"""Here is the recovery plan text:
+    \"\"\"
+    {full_text}
+    \"\"\"
+    Dont mention anything else in the output, only the JSON part which could be parsed using json.loads in python"""
+    genai.configure(api_key=GEMINI_API_KEY)
+    model = genai.GenerativeModel("gemini-1.5-flash")
+    chat = model.start_chat(history=[])
+    response = chat.send_message(
+        [system_prompt, user_prompt],
+        generation_config={"temperature": 0.0, "max_output_tokens": 450}
+    )
+    content = response.text.strip()
+    match = re.search(r'(\[\s*{.*?}\s*\])', content, re.DOTALL)
+    if match:
+        json_str = match.group(1)
+    else:
+        json_str = content
+    try:
+        summary_list = json.loads(json_str)
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Invalid JSON:\n{json_str}") from e
+
+    # --- DataFrame generation ---
+    line_summary = pd.DataFrame(summary_list)
+    production_df = pd.read_excel(production_excel_path)
+    last_date  = production_df['Date'].max()
+    last_shift = production_df[production_df['Date'] == last_date]['Shift'].iloc[-1]
+
+    def next_shift(date, shift):
+        if shift == 'Day':
+            return date, 'Night'
+        return date + timedelta(days=1), 'Day'
+
+    plan_rows = []
+    for rec in summary_list:
+        line = rec["Production Line"]
+        rec_hours = rec["Recommended Hours (hrs/day)"]
+        inc_day   = rec["Increase (%) Day"]
+        inc_night = rec["Increase (%) Night"]
+        days      = rec["Recovery Days"]
+
+        d, s = next_shift(last_date, last_shift)
+        for _ in range(days * 2):  # two shifts per day
+            plan_rows.append({
+                "Date":                            d.strftime("%Y-%m-%d"),
+                "Production Line":                 line,
+                "Shift":                           s,
+                "Machine operating hours recommended": rec_hours,
+                "Production Rate (units/hr)":      prod_rate_map[line.replace(' ', '')],
+                "Increase (%)":                    inc_day if s == "Day" else inc_night
+            })
+            d, s = next_shift(d, s)
+
+    production_plan = pd.DataFrame(plan_rows)
+    return line_summary, production_plan
 
 # ─────────────────────────────────────────────
 # 5. Push logs to GCS at module exit (cloud mode)

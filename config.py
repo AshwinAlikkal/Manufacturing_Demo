@@ -7,6 +7,8 @@ merged_data_filepath = "Data/Source_Data/Merged_Data/merged_data.csv"
 linewise_pivot_data_filepath = "Data/Final_Data/Data_For_AI/linewise_pivot_data.csv"
 ocr_production_saved_path = "Data/OCR_Data/Production_OCR.csv"
 ocr_issues_saved_path = "Data/OCR_Data/Issues_OCR.csv"
+production_plan_filepath = "Data/Reported_plans/Production_plan.csv"
+line_summary_filepath = "Data/Reported_plans/line_summary_plan.csv"
 
 # EDA local plots saved path
 utilization_fulfillment_plot_saved_path = 'EDA_plots/Frontend_Plots/Utilization_Fulfillment/linewise_utilization_fulfillment_downtime.png'
@@ -29,7 +31,8 @@ local_eda_flag = False
 local_report_flag = False
 local_log_flag = False
 local_ocr_flag = False
-
+line_summary_flag = False
+production_plan_flag = False
 # Model
 USE_OPENAI = True
 huggingface_model = "google/gemma-3-27b-it"

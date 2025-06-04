@@ -128,19 +128,19 @@ def prompt_generation(production_issue_text, deficit_block, metrics_csv, date, s
             For each line, provide:
                 ** Line 1 **:
                     **Issues**: 
-                    [detail all the issues that happened here from the {date} and {shift} occured in the manufacturing unit in Line 1.]
+                    [detail all the Major and Minor issues that happened here ON AND AFTER the {date} and {shift} occured in the manufacturing unit in Line 1.]
                     **Impact on the manufacturing unit**: 
                     [Analysis of how the above issues and how they affect output, quality, costs, safety, downstream processes, etc. in points]
  
                 ** Line 2 **:
                 **Issues**: 
-                [detail all the issues that happened here from the {date} and {shift} occured in the manufacturing unit in Line 2.]
+                [detail all the Major and Minor issues that happened here ON AND AFTER issues that happened here from the {date} and {shift} occured in the manufacturing unit in Line 2.]
                 **Impact on the manufacturing unit**: 
                 [Analysis of how the above issues and how they affect output, quality, costs, safety, downstream processes, etc. in points]
  
                 ** Line 3 **:
                 **Issues**: 
-                [detail all the issues that happened here from the {date} and {shift} occured in the manufacturing unit in Line 3]
+                [detail all the Major and Minor issues that happened here ON AND AFTER issues that happened here from the {date} and {shift} occured in the manufacturing unit in Line 3]
                 **Impact on the manufacturing unit**: 
                 [Analysis of how these issues affect output, quality, costs, safety, downstream processes, etc. in points]
 
@@ -169,14 +169,14 @@ def prompt_generation(production_issue_text, deficit_block, metrics_csv, date, s
                     ** Root cause of the deficit ** : 
                         Summarize issues that are caused for the line having major issues stricly from the start of {date} and {shift}. 
                         The reference to this should be the analysis of Plot 2 : Production, Downtime & Issue Types by Line and Shift which will state the issues caused after the {date} and {shift} shift. 
-                        ONLY FOCUS ON THOSE LINES WHERE THERE HAS BEEN A MAJOR ISSUE AFTER THE {date} and {shift}. IGNORE THOSE LINES WHERE THERE IS A MINOR ISSUE AFTER THE {date} and {shift}.  
+                        ONLY FOCUS ON THOSE LINES WHERE THERE HAS BEEN A MAJOR ISSUE ON AND AFTER THE {date} and {shift}. IGNORE THOSE LINES WHERE THERE IS A MINOR ISSUE AFTER THE {date} and {shift}.  
                         Also mention about the total deficit that has been caused due to the issues in the lines.     
             ** 2) Recommended Production Scheduling **
                 You are given a deficit block which is already optimized given above in triple backticks.
-                Focus on th above deficit block data and based on those numbers and your understanding, create a production plan on the following lines:
+                Focus on the above deficit block data and based on those numbers and your understanding, create a production plan on the following lines:
                 For each line, give detailed, actionable recommendations (shift patterns, quality checks, safety considerations, etc.) that achieve the required extra hours without violating constraints.
-                AS INSTRUCTED IN THE DEFICIT BLOCK, DO NOT ADD ANY OTHER NUMBER EXCEPT THE ONES MENTIONED IN THE DEFICIT BLOCK.
-    
+                AS INSTRUCTED IN THE DEFICIT BLOCK, DO NOT ADD ANY OTHER NUMBER EXCEPT THE ONES MENTIONED IN THE DEFICIT BLOCK. ALSO MENTION THE INCREASE IN PERCENTAGE REQUIRED FOR BOTH THE DAY AND NIGHT SHIFT AS MENTIONED IN THE DEFICIT BLOCK.
+
                     **Line 1 Recommendations**: <YOU HAVE TO GIVE THE RECOMMENDATIONS BASED ON THE DEFICIT BLOCK DATA FOR LINE 1 AND ALSO TELL HERE HOW MUCH MINIMUM DAYS IT HAS TO RUN ON OPTIMIZED MACHINE OPERATING HOURS>
                     **Line 2 Recommendations**: <YOU HAVE TO GIVE THE RECOMMENDATIONS BASED ON THE DEFICIT BLOCK DATA FOR LINE 2 AND ALSO TELL HERE HOW MUCH MINUMUM DAYS IT HAS TO RUN ON OPTIMIZED MACHINE OPERATING HOURS>
                     **Line 3 Recommendations**: <YOU HAVE TO GIVE THE RECOMMENDATIONS BASED ON THE DEFICIT BLOCK DATA FOR LINE 3 AND ALSO TELL HERE HOW MUCH MINIMUM DAYS IT HAS TO RUN ON OPTIMIZED MACHINE OPERATING HOURS>
