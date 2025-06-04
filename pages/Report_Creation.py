@@ -211,7 +211,7 @@ try:
         # 2️⃣ Generate production plan
         line_summary, production_plan = utils.recovery_summary_and_plan_from_text(
             full_text,
-            config.production_filepath
+            config.cleaned_path
         )
         logger.info(
             "Generated production plan: %d rows for %d lines",
@@ -247,7 +247,7 @@ try:
             
 except Exception as e:
     st.error('An error occured during the generation of production plan, {e}')
-    logger.info("Erro occured during the generation of production plan")
+    logger.info("Error occured during the generation of production plan")
 # ─────────────────────────────────────────────
 # 3️⃣ Upload Logs to GCS if in Cloud Mode
 # ─────────────────────────────────────────────

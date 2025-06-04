@@ -430,7 +430,7 @@ def full_text_from_report(report_path):
 ## ---> Final Production plan generation in a dataframe format
 def recovery_summary_and_plan_from_text(
     full_text,
-    production_excel_path,
+    cleaned_csv_path,
     prod_rate_map=None,
 ):
     """
@@ -481,9 +481,9 @@ def recovery_summary_and_plan_from_text(
 
     # --- DataFrame generation ---
     line_summary = pd.DataFrame(summary_list)
-    production_df = pd.read_excel(production_excel_path)
-    last_date  = production_df['Date'].max()
-    last_shift = production_df[production_df['Date'] == last_date]['Shift'].iloc[-1]
+    cleaned_df = pd.read_csv(cleaned_csv_path)
+    last_date  = cleaned_df['Date'].max()
+    last_shift = cleaned_df[cleaned_df['Date'] == last_date]['Shift'].iloc[-1]
 
     def next_shift(date, shift):
         if shift == 'Day':
