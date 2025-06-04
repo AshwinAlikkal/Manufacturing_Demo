@@ -57,22 +57,29 @@ def _ensure_local(path):
 
 def classify_and_save(upload):
     try:
-        name, raw = upload.name.lower(), upload.getvalue()
-        if   "issue"      in name: path = config.issues_filepath
-        elif "production" in name: path = config.production_filepath
-        elif "demand"     in name: path = config.demand_filepath
+        name = upload.name.lower()
+        raw = upload.getvalue()
+
+        # More robust classification — strip directories, check actual filename
+        filename = os.path.basename(name)
+
+        if "production" in filename:
+            path = config.production_filepath
+        elif "issue" in filename:
+            path = config.issues_filepath
+        elif "demand" in filename:
+            path = config.demand_filepath
         else:
             st.warning(f"⚠️  **{upload.name}** skipped (need 'issue', 'production', or 'demand').")
             logger.warning("Skipped upload %s", upload.name)
             return
 
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "wb") as f:
-            f.write(raw)
+        gcs.write_bytes(raw, path, is_local=config.local_data_flag)
         logger.info("Saved upload %s to %s", upload.name, path)
     except Exception as e:
         logger.error("Failed to save upload %s: %s", upload.name, e)
         st.error(f"Error saving file: {upload.name}")
+
 
 def header_cols(path):
     try:

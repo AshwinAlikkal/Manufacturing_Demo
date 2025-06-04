@@ -204,7 +204,7 @@ try:
     report_path = st.session_state.get("report_path")
     if report_path:
         # 1️⃣ Extract full text
-        full_text = utils.full_text_from_report(report_path)
+        full_text = utils.full_text_from_report(report_path, is_local = config.local_report_flag)
         logger.info("Extracted text from report (%d chars)", len(full_text))
         
 

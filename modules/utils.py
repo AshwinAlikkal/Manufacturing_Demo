@@ -464,7 +464,7 @@ def recovery_summary_and_plan_from_text(full_text, cleaned_csv_path, prod_rate_m
 
     # --- DataFrame generation ---
     line_summary = pd.DataFrame(summary_list)
-    cleaned_df = pd.read_csv(cleaned_csv_path)
+    cleaned_df = gcs.load_dataframe(cleaned_csv_path, is_local=config.local_data_flag)
     cleaned_df['Date'] = pd.to_datetime(cleaned_df['Date'])  # Ensures correct type
     last_date  = cleaned_df['Date'].max()
     last_shift = cleaned_df[cleaned_df['Date'] == last_date]['Shift'].iloc[-1]
