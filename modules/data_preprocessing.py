@@ -3,6 +3,7 @@
 import pandas as pd
 import os
 import config
+from io import BytesIO
 from modules import gcs  # ✅ added
 
 # Financial assumptions
@@ -15,9 +16,15 @@ FINANCIAL_PARAMS = {
 }
 
 def load_data():
-    issues = pd.read_excel(config.issues_filepath)
-    production = pd.read_excel(config.production_filepath)
-    demand = pd.read_excel(config.demand_filepath)
+    if config.local_data_flag:
+        issues = pd.read_excel(config.issues_filepath)
+        production = pd.read_excel(config.production_filepath)
+        demand = pd.read_excel(config.demand_filepath)
+    else:
+        issues = pd.read_excel(BytesIO(gcs.read_bytes(config.issues_filepath, is_local=False)))
+        production = pd.read_excel(BytesIO(gcs.read_bytes(config.production_filepath, is_local=False)))
+        demand = pd.read_excel(BytesIO(gcs.read_bytes(config.demand_filepath, is_local=False)))
+    
     return issues, production, demand
 
 def merge_data(issues, production, demand):

@@ -21,7 +21,7 @@ from modules.logger import get_log_stream, upload_log_to_gcs, get_logger
 from PIL import Image
 import google.generativeai as genai
 import re
-
+from io import BytesIO
 import pdfplumber
 import json
 # ─────────────────────────────────────────────
@@ -421,11 +421,17 @@ def OCR_implementation(uploaded_files):
 
 ## ---> Extracting text from pdf using pdfplumber
 
-def full_text_from_report(report_path):
-    with pdfplumber.open(report_path) as pdf:
-        full_text = "\n".join(page.extract_text() or "" for page in pdf.pages)
+def full_text_from_report(report_path, is_local=True):
+    if is_local:
+        with pdfplumber.open(report_path) as pdf:
+            full_text = "\n".join(page.extract_text() or "" for page in pdf.pages)
+    else:
+        pdf_bytes = gcs.read_bytes(report_path, is_local=False)
+        with pdfplumber.open(BytesIO(pdf_bytes)) as pdf:
+            full_text = "\n".join(page.extract_text() or "" for page in pdf.pages)
 
     return full_text
+
 
 ## ---> Final Production plan generation in a dataframe format
 def recovery_summary_and_plan_from_text(full_text, cleaned_csv_path, prod_rate_map=None,):
