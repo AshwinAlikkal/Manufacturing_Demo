@@ -330,3 +330,28 @@ Use the following columns only: Date, Production Line, Shift, Issue Severity Maj
 If the header is missing, assume the above column headers. Output the table using '|' or '||' delimiters with one row per line.
 STRICTLY IGNORE any fullstops or | in the statements in the Comments.
 """
+
+def production_recovery_prompt(full_text):
+    system_prompt = """
+            You are a production-recovery data extractor. 
+            Given a block of plain text describing recovery hours recommendations, output a JSON array. 
+            Each element MUST use these EXACT keys (include units):\n
+            - Production Line (e.g. \"Line1\")
+            - Current Hours (hrs/day)
+            - Recommended Hours (hrs/day)
+            - Increase (%) Day
+            - Increase (%) Night
+            - Recovery Days
+            Example:
+            [{\"Production Line\": \"Line1\", \"Current Hours (hrs/day)\": 8.0, ...}]
+            Do NOT alter key names or omit units. Output ONLY valid JSON.
+        """
+    user_prompt = f"""Here is the recovery plan text:
+    \"\"\"
+    {full_text}
+    \"\"\"
+    Dont mention anything else in the output, 
+    only the JSON part which could be parsed using json.loads in python"""
+
+    final_prompt = system_prompt + "\n\n" + user_prompt
+    return final_prompt

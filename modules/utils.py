@@ -428,11 +428,7 @@ def full_text_from_report(report_path):
     return full_text
 
 ## ---> Final Production plan generation in a dataframe format
-def recovery_summary_and_plan_from_text(
-    full_text,
-    cleaned_csv_path,
-    prod_rate_map=None,
-):
+def recovery_summary_and_plan_from_text(full_text, cleaned_csv_path, prod_rate_map=None,):
     """
     1. Calls Gemini to extract recovery JSON from full_text.
     2. Generates summary DataFrame and production plan DataFrame.
@@ -442,33 +438,14 @@ def recovery_summary_and_plan_from_text(
         prod_rate_map = {"Line1": 140, "Line2": 150, "Line3": 130}
 
     # --- Gemini call for JSON extraction ---
-    system_prompt = (
-        "You are a production-recovery data extractor. "
-        "Given a block of plain text describing recovery hours recommendations, "
-        "output a JSON array. Each element MUST use these EXACT keys (include units):\n"
-        "  - Production Line (e.g. \"Line1\")\n"
-        "  - Current Hours (hrs/day)\n"
-        "  - Recommended Hours (hrs/day)\n"
-        "  - Increase (%) Day\n"
-        "  - Increase (%) Night\n"
-        "  - Recovery Days\n"
-        "Example:\n"
-        "[{\"Production Line\": \"Line1\", \"Current Hours (hrs/day)\": 8.0, ...}]\n"
-        "Do NOT alter key names or omit units. Output ONLY valid JSON."
+    prompt = prompts.production_recovery_prompt(full_text)
+    client = OpenAI(api_key=OPENAI_API_KEY)
+    response = client.chat.completions.create(
+        model=config.gpt_model,
+        messages=[{"role": "system", "content": prompt}],
+        temperature=0.0,
     )
-    user_prompt = f"""Here is the recovery plan text:
-    \"\"\"
-    {full_text}
-    \"\"\"
-    Dont mention anything else in the output, only the JSON part which could be parsed using json.loads in python"""
-    genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel("gemini-1.5-flash")
-    chat = model.start_chat(history=[])
-    response = chat.send_message(
-        [system_prompt, user_prompt],
-        generation_config={"temperature": 0.0, "max_output_tokens": 450}
-    )
-    content = response.text.strip()
+    content = response.choices[0].message.content.strip()
     match = re.search(r'(\[\s*{.*?}\s*\])', content, re.DOTALL)
     if match:
         json_str = match.group(1)
@@ -482,8 +459,10 @@ def recovery_summary_and_plan_from_text(
     # --- DataFrame generation ---
     line_summary = pd.DataFrame(summary_list)
     cleaned_df = pd.read_csv(cleaned_csv_path)
+    cleaned_df['Date'] = pd.to_datetime(cleaned_df['Date'])  # Ensures correct type
     last_date  = cleaned_df['Date'].max()
     last_shift = cleaned_df[cleaned_df['Date'] == last_date]['Shift'].iloc[-1]
+
 
     def next_shift(date, shift):
         if shift == 'Day':

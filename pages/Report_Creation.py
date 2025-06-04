@@ -246,8 +246,8 @@ try:
                     gcs.save_dataframe(production_plan, config.production_plan_filepath, is_local=config.production_plan_flag)
             
 except Exception as e:
-    st.error('An error occured during the generation of production plan, {e}')
-    logger.info("Error occured during the generation of production plan")
+    st.error(f'An error occured during the generation of production plan, {e}')
+    logger.info(f"Error occured during the generation of production plan as {e}")
 # ─────────────────────────────────────────────
 # 3️⃣ Upload Logs to GCS if in Cloud Mode
 # ─────────────────────────────────────────────
