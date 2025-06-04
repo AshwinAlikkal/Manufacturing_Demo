@@ -1,7 +1,7 @@
 # Data local plots saved path
-issues_filepath = "Data/Source_Data/Issues_downtime_rawmaterial_data.xlsx"
-production_filepath = "Data/Source_Data/Production_data.xlsx"
-demand_filepath = "Data/Source_Data/Demand_data.xlsx"
+issues_filepath = "Data/Source_Data/Issues_Data/Issues_downtime_rawmaterial_data.xlsx"
+production_filepath = "Data/Source_Data/Issues_Data/Production_data.xlsx"
+demand_filepath = "Data/Source_Data/Issues_Data/Demand_data.xlsx"
 cleaned_path = "Data/Final_Data/Cleaned_Data/cleaned_data.csv"
 merged_data_filepath = "Data/Source_Data/Merged_Data/merged_data.csv"
 linewise_pivot_data_filepath = "Data/Final_Data/Data_For_AI/linewise_pivot_data.csv"
