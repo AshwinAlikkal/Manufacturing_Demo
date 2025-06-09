@@ -33,7 +33,7 @@ local_log_flag = False
 local_ocr_flag = False
 line_summary_flag = False
 production_plan_flag = False
-# Model
+## Model
 USE_OPENAI = True
 huggingface_model = "google/gemma-3-27b-it"
 hugging_face_temperature=0.0
