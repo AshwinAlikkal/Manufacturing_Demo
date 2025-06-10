@@ -182,7 +182,7 @@ try:
                 tmp_path = f"/tmp/{os.path.basename(pdf_path)}"
                 with open(tmp_path, "wb") as f:
                     f.write(pdf_bytes)
-                pdf_viewer(tmp_path, width=900, height=720)
+                pdf_viewer(tmp_path, width=900, height=720, annotations=[])
                 logger.info("PDF fetched from GCS (%s)", pdf_path)
             except Exception as e:
                 logger.error("Error fetching PDF from GCS: %s", e)
