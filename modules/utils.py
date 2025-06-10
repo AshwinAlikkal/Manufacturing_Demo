@@ -43,7 +43,7 @@ def _log_long(txt: str, label: str, head: int = 800) -> None:
 # ─────────────────────────────────────────────
 OPENAI_API_KEY     = os.getenv("OPENAI_API_KEY")
 HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API_KEY")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
 # ─────────────────────────────────────────────
 # Utility functions
@@ -338,7 +338,7 @@ def OCR_implementation(uploaded_files):
     """
 
     # Configure Gemini OCR
-    genai.configure(api_key=GEMINI_API_KEY)
+    genai.configure(api_key=GOOGLE_API_KEY)
     model = genai.GenerativeModel(config.ocr_model)
 
     # Define expected headers and columns
@@ -459,6 +459,11 @@ def recovery_summary_and_plan_from_text(full_text, cleaned_csv_path, prod_rate_m
         json_str = content
     try:
         summary_list = json.loads(json_str)
+        for rec in summary_list:
+            try:
+                rec["Recovery Days"] = int(rec["Recovery Days"])
+            except (ValueError, KeyError):
+                rec["Recovery Days"] = 0
     except json.JSONDecodeError as e:
         raise ValueError(f"Invalid JSON:\n{json_str}") from e
 

@@ -341,7 +341,10 @@ def production_recovery_prompt(full_text):
             - Recommended Hours (hrs/day)
             - Increase (%) Day
             - Increase (%) Night
-            - Recovery Days
+            - - Recovery Days (MUST be integer, 0 if no deficit)
+
+            <NOTE: If recovery days are not specified or there's '0' deficit, use 0.>
+
             Example:
             [{\"Production Line\": \"Line1\", \"Current Hours (hrs/day)\": 8.0, ...}]
             Do NOT alter key names or omit units. Output ONLY valid JSON.
@@ -350,6 +353,7 @@ def production_recovery_prompt(full_text):
     \"\"\"
     {full_text}
     \"\"\"
+
     Dont mention anything else in the output, 
     only the JSON part which could be parsed using json.loads in python"""
 

@@ -168,7 +168,7 @@ try:
 
         if config.local_report_flag:    # Local mode
             try:
-                pdf_viewer(pdf_path, width=900, height=720)
+                pdf_viewer(pdf_path, width=900, height=720, annotations=[])
                 with open(pdf_path, "rb") as f:
                     pdf_bytes = f.read()
                 logger.info("PDF viewed locally (%s)", pdf_path)
